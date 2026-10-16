@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{--navy:#1F3A5F;--ink:#1d2433;--muted:#667085;--line:#e4e7ec;--bg:#f6f7f9;--card:#fff;
+        --go:#1e8e3e;--cond:#d97706;--nogo:#c62828;--accent:#2f6fde}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:var(--navy);color:#fff;padding:18px 24px}
+  header h1{margin:0;font-size:20px}
+  header p{margin:4px 0 0;opacity:.8;font-size:13px}
+  .tabs{display:flex;gap:8px;padding:12px 24px 0;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:#fff;padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:600}
+  .tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px 24px 32px}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 10px;font-size:15px}
+  .sub{color:var(--muted);font-size:12px;margin:-6px 0 10px}
+  label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+  label span{color:var(--muted)}
+  input,select{width:130px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;text-align:right}
+  select{text-align:left}
+  .scen{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+  .scen button{padding:7px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font:inherit;font-size:12px}
+  .scen button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+  .run{width:100%;padding:11px;background:var(--accent);color:#fff;border:0;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}
+  .run:disabled{opacity:.6}
+  .verdict{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-radius:14px;color:#fff;margin-bottom:12px}
+  .verdict b{font-size:22px}
+  .v-GO{background:var(--go)} .v-CONDITIONAL{background:var(--cond)} .v-NO-GO{background:var(--nogo)} .v-wait{background:#98a2b3}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+  @media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .kpi small{color:var(--muted);display:block;font-size:12px}
+  .kpi b{font-size:19px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  @media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+  .bar{position:relative;height:30px;background:#eef1f5;border-radius:8px;margin:28px 0 56px}
+  .bar .mk{position:absolute;top:-4px;width:3px;height:38px;border-radius:2px}
+  .bar .lb{position:absolute;top:-22px;font-size:11px;white-space:nowrap;transform:translateX(-50%)}
+  .bar .lb2{top:40px} .bar .lb3{top:58px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:6px;text-align:right}
+  th{background:#f2f4f7}
+  td.g{background:#e6f4ea} td.r{background:#fdecea} td.b{font-weight:700;outline:2px solid var(--ink)}
+  .note{color:var(--muted);font-size:12px;margin-top:6px}
+  #cmp{display:none;padding:16px 24px}
+  .spin{display:none;color:var(--muted);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>A15+ | 여의도 · 이태원 2부지 최종 의사결정 v1.1</h1>
+  <p id="who">불러오는 중…</p>
+</header>
+<div class="tabs">
+  <button class="tab on" data-k="YD">여의도 48-1·48-5</button>
+  <button class="tab" data-k="IT">이태원 124-3·124-4</button>
+  <button class="tab" data-k="CMP">두 부지 비교</button>
+</div>
+
+<main id="site">
+  <section>
+    <div class="card">
+      <h3 id="siteName">-</h3>
+      <div class="sub" id="siteSub"></div>
+      <label>개발용도 <select id="use"></select></label>
+      <label>평당 공사비 <span id="costHint"></span></label>
+      <label>대지면적(평) <input id="siteArea" type="number" step="0.1"></label>
+      <label>용적률 <input id="far" type="number" step="0.01"></label>
+      <label>제외면적비율 <input id="exclRate" type="number" step="0.01"></label>
+      <label>공사비 할증계수 <input id="siteCostFactor" type="number" step="0.01"></label>
+      <label id="pLab">수입단가 <input id="price" type="number" step="1"></label>
+      <label id="capRow">Exit Cap Rate <input id="capRate" type="number" step="0.001"></label>
+      <label>검토 토지가격(억) <input id="landPrice" type="number" step="0.1"></label>
+      <label>LTV <input id="ltv" type="number" step="0.01"></label>
+      <label>Spread <input id="spread" type="number" step="0.001"></label>
+      <label>공사기간(월) <input id="constMonths" type="number" step="1"></label>
+      <label>목표 Equity IRR <input id="targetIRR" type="number" step="0.005"></label>
+      <div class="scen" id="scen">
+        <button data-s="Base" class="on">Base</button>
+        <button data-s="금리상승">금리 +1%p</button>
+        <button data-s="수입하락">수입단가 −10%</button>
+        <button data-s="공사비상승">공사비 +10%</button>
+        <button data-s="준공지연">준공 +6개월</button>
+        <button data-s="Stress">Stress (복합)</button>
+      </div>
+      <button class="run" id="run">사업성 분석 실행 (Log 기록)</button>
+      <div class="spin" id="spin">계산 중… 몬테카를로 1,000회</div>
+      <p class="note">What-if 화면은 Assumption 시트를 바꾸지 않습니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="verdict v-wait" id="verdict"><b>분석 대기</b><span id="vtxt">좌측 [사업성 분석 실행]</span></div>
+    <div class="kpis">
+      <div class="kpi"><small>Project IRR</small><b id="kProj">-</b></div>
+      <div class="kpi"><small>Equity IRR</small><b id="kEq">-</b></div>
+      <div class="kpi"><small>최대 매입가능 토지가격</small><b id="kMax">-</b></div>
+      <div class="kpi"><small>목표 IRR 달성확률</small><b id="kProb">-</b></div>
+      <div class="kpi"><small>총수입</small><b id="kRev">-</b></div>
+      <div class="kpi"><small>사업이익 · 이익률</small><b id="kProfit">-</b></div>
+      <div class="kpi"><small>금융비용</small><b id="kInt">-</b></div>
+      <div class="kpi"><small>최대 자기자본 투입</small><b id="kPeak">-</b></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3>토지가격 협상 지도 (억원)</h3>
+      <div class="bar" id="bar"></div>
+      <div class="note" id="barNote"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>월별 Equity Cash Flow</h3><canvas id="cfChart" height="200"></canvas></div>
+      <div class="card"><h3>Equity IRR 분포 (몬테카를로)</h3><canvas id="mcChart" height="200"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>민감도 — 현재 토지가격 기준 Equity IRR</h3>
+      <div id="sens"></div>
+      <p class="note">행 = 수입단가 변화 · 열 = 공사비 변화 · 초록 = 목표 IRR 이상 · 굵은 칸 = Base</p>
+    </div>
+  </section>
+</main>
+
+<section id="cmp">
+  <div class="card">
+    <h3>두 부지 Base Case 비교 (Assumption 시트 기준)</h3>
+    <div id="cmpTable">불러오는 중…</div>
+    <p class="note" id="cmpNote"></p>
+  </div>
+</section>
+
+<script>
+var MODEL=null, CUR='YD', SCEN='Base', charts={}, LAST={};
+var F={p:function(v){return v==null?'n/a':(v*100).toFixed(1)+'%';},
+       e:function(v){return v==null?'-':(Math.round(v*10)/10).toLocaleString()+'억';}};
+
+google.script.run.withSuccessHandler(function(m){
+  MODEL=m;
+  document.getElementById('who').textContent=m.student.id+' '+m.student.name+' · '+m.student.project;
+  var sel=document.getElementById('use');
+  Object.keys(m.presets).forEach(function(u){var o=document.createElement('option');o.value=u;o.textContent=u;sel.appendChild(o);});
+  loadSite('YD');
+}).getModel();
+
+function loadSite(k){
+  CUR=k; var s=MODEL.sites[k], a=s.a;
+  document.getElementById('siteName').textContent=s.name;
+  document.getElementById('siteSub').textContent=s.subtitle+' · '+a.revType;
+  ['siteArea','far','exclRate','siteCostFactor','capRate','landPrice','ltv','spread','constMonths','targetIRR']
+    .forEach(function(id){document.getElementById(id).value=+(+a[id]).toFixed(4);});
+  document.getElementById('use').value=a.use;
+  var pk=priceKey(a.revType);
+  document.getElementById('pLab').firstChild.textContent=priceLabel(a.revType)+' ';
+  document.getElementById('price').value=a[pk];
+  document.getElementById('capRow').style.display=a.revType==='SALE'?'none':'flex';
+  costHint(); setScen('Base');
+  ['verdict'].forEach(function(){document.getElementById('verdict').className='verdict v-wait';
+    document.getElementById('verdict').firstChild.textContent='분석 대기';});
+}
+function priceKey(t){return t==='SALE'?'salePrice':(t==='LEASE'?'rent':'adr');}
+function priceLabel(t){return t==='SALE'?'분양(매각)단가 만원/평':(t==='LEASE'?'월 임대료 만원/평':'ADR 만원');}
+function costHint(){
+  var u=document.getElementById('use').value, f=+document.getElementById('siteCostFactor').value;
+  var c=MODEL.presets[u].cost;
+  document.getElementById('costHint').textContent=c.toLocaleString()+' × '+f.toFixed(3)+' = '+Math.round(c*f).toLocaleString()+'만원';
+}
+document.getElementById('use').onchange=costHint;
+document.getElementById('siteCostFactor').oninput=costHint;
+
+function setScen(s){SCEN=s;[].forEach.call(document.querySelectorAll('#scen button'),function(b){b.classList.toggle('on',b.dataset.s===s);});}
+document.getElementById('scen').onclick=function(e){if(e.target.dataset.s)setScen(e.target.dataset.s);};
+
+function overrides(){
+  var a=MODEL.sites[CUR].a, o={};
+  ['siteArea','far','exclRate','siteCostFactor','capRate','landPrice','ltv','spread','constMonths','targetIRR']
+    .forEach(function(id){o[id]=+document.getElementById(id).value;});
+  o.use=document.getElementById('use').value;
+  o.otherRate=MODEL.presets[o.use].otherRate;
+  o.buildCost=null;
+  var pk=priceKey(a.revType), price=+document.getElementById('price').value;
+  var cost=MODEL.presets[o.use].cost*o.siteCostFactor;
+  var stress=SCEN==='Stress';
+  if(SCEN==='금리상승'||stress) o.scenShift=0.01;
+  if(SCEN==='수입하락'||stress) price*=0.9;
+  if(SCEN==='공사비상승'||stress) o.buildCost=cost*1.1;
+  if(SCEN==='준공지연'||stress) o.constMonths+=6;
+  o[pk]=price;
+  return o;
+}
+
+document.getElementById('run').onclick=function(){
+  var btn=this; btn.disabled=true; document.getElementById('spin').style.display='block';
+  google.script.run.withSuccessHandler(function(r){btn.disabled=false;document.getElementById('spin').style.display='none';render(r);})
+    .withFailureHandler(function(err){btn.disabled=false;document.getElementById('spin').style.display='none';alert(err.message);})
+    .runWhatIf(CUR,overrides(),SCEN,true);
+};
+
+function render(r){
+  var k=r.kpi, d=r.decision, a=r.a;
+  var v=document.getElementById('verdict');
+  v.className='verdict v-'+(d.verdict==='GO'?'GO':(d.verdict==='NO-GO'?'NO-GO':'CONDITIONAL'));
+  v.firstChild.textContent=d.verdict;
+  document.getElementById('vtxt').textContent=SCEN+' · 여유 '+F.e(d.headroom)+' ('+F.p(d.headroomPct)+')';
+  document.getElementById('kProj').textContent=F.p(k.projIRR);
+  document.getElementById('kEq').textContent=F.p(k.eqIRR);
+  document.getElementById('kMax').textContent=F.e(r.maxLand);
+  document.getElementById('kProb').textContent=r.mc?F.p(r.mc.probTarget):'-';
+  document.getElementById('kRev').textContent=F.e(k.totalIn);
+  document.getElementById('kProfit').textContent=F.e(k.profit)+' · '+F.p(k.margin);
+  document.getElementById('kInt').textContent=F.e(k.interest);
+  document.getElementById('kPeak').textContent=F.e(k.peakEquity);
+  drawBar(a.landPrice,r.maxLand,r.mc?r.mc.safeLand80:null);
+  drawCF(r.eqCF); if(r.mc) drawMC(r.mc.irrs,a.targetIRR); drawSens(r.sens,a.targetIRR);
+}
+
+function drawBar(cur,max,safe){
+  var hi=Math.max(cur,max,safe||0)*1.15, el=document.getElementById('bar'); el.innerHTML='';
+  [[safe,'#1e8e3e','② 목표 제시가 '+F.e(safe),' lb2'],[max,'#2f6fde','① 협상 상한 '+F.e(max),''],
+   [cur,'#c62828','현재 검토가 '+F.e(cur),' lb3']].forEach(function(x){
+    if(x[0]==null) return;
+    var p=Math.max(0,Math.min(100,x[0]/hi*100));
+    el.insertAdjacentHTML('beforeend','<div class="mk" style="left:'+p+'%;background:'+x[1]+'"></div>'+
+      '<div class="lb'+x[3]+'" style="left:'+p+'%;color:'+x[1]+'">'+x[2]+'</div>');
+  });
+  document.getElementById('barNote').textContent=max>=cur?'현재가가 협상 상한 이내입니다. 목표 제시가에서 협상을 시작하세요.':'현재가가 협상 상한을 넘습니다. 상한 이하로 가격 인하가 없으면 드롭이 합리적입니다.';
+}
+function drawCF(cf){
+  if(charts.cf) charts.cf.destroy();
+  charts.cf=new Chart(document.getElementById('cfChart'),{type:'bar',
+    data:{labels:cf.map(function(_,i){return 'M'+i;}),datasets:[{data:cf,backgroundColor:cf.map(function(v){return v<0?'#c62828':'#1e8e3e';})}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:12}},y:{title:{display:true,text:'억원'}}}}});
+}
+function drawMC(irrs,target){
+  var lo=-0.4,st=0.05,b=[],lab=[];for(var i=0;i<14;i++){b.push(0);lab.push(Math.round((lo+i*st)*100)+'%');}
+  irrs.forEach(function(v){b[Math.max(0,Math.min(13,Math.floor((v-lo)/st)))]++;});
+  if(charts.mc) charts.mc.destroy();
+  charts.mc=new Chart(document.getElementById('mcChart'),{type:'bar',
+    data:{labels:lab,datasets:[{data:b,backgroundColor:lab.map(function(_,i){return lo+i*st>=target-1e-9?'#1e8e3e':'#98a2b3';})}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'시나리오 수'}}}}});
+}
+function drawSens(s,t){
+  var h='<table><tr><th>수입 \\ 공사비</th>'+s.steps.map(function(x){return '<th>'+(x>0?'+':'')+Math.round(x*100)+'%</th>';}).join('')+'</tr>';
+  s.irr.forEach(function(row,i){h+='<tr><th>'+(s.steps[i]>0?'+':'')+Math.round(s.steps[i]*100)+'%</th>';
+    row.forEach(function(v,j){h+='<td class="'+(v!=null&&v>=t?'g':'r')+(i===2&&j===2?' b':'')+'">'+F.p(v)+'</td>';});h+='</tr>';});
+  document.getElementById('sens').innerHTML=h+'</table>';
+}
+
+// 탭
+[].forEach.call(document.querySelectorAll('.tab'),function(t){t.onclick=function(){
+  [].forEach.call(document.querySelectorAll('.tab'),function(x){x.classList.toggle('on',x===t);});
+  var cmp=t.dataset.k==='CMP';
+  document.getElementById('site').style.display=cmp?'none':'grid';
+  document.getElementById('cmp').style.display=cmp?'block':'none';
+  if(cmp) loadCompare(); else loadSite(t.dataset.k);
+};});
+
+function loadCompare(){
+  var out={}, n=0;
+  ['YD','IT'].forEach(function(k){
+    google.script.run.withSuccessHandler(function(r){out[k]=r;if(++n===2)showCompare(out);}).runWhatIf(k,{},'비교',false);
+  });
+}
+function showCompare(o){
+  var rows=[['판정',function(r){return r.decision.verdict;}],['개발용도',function(r){return r.a.use;}],
+    ['검토 토지가격',function(r){return F.e(r.a.landPrice);}],['Project IRR',function(r){return F.p(r.kpi.projIRR);}],
+    ['Equity IRR',function(r){return F.p(r.kpi.eqIRR);}],['최대 매입가',function(r){return F.e(r.maxLand);}],
+    ['현재가 대비 여유',function(r){return F.e(r.decision.headroom);}],['총수입',function(r){return F.e(r.kpi.totalIn);}],
+    ['평당 공사비',function(r){return Math.round(r.kpi.unitCost).toLocaleString()+'만원';}],['최대 자기자본',function(r){return F.e(r.kpi.peakEquity);}]];
+  var h='<table><tr><th>항목</th><th>'+MODEL.sites.YD.name+'</th><th>'+MODEL.sites.IT.name+'</th></tr>';
+  rows.forEach(function(x){h+='<tr><th>'+x[0]+'</th><td>'+x[1](o.YD)+'</td><td>'+x[1](o.IT)+'</td></tr>';});
+  document.getElementById('cmpTable').innerHTML=h+'</table>';
+  var pick=o.YD.decision.headroom>=o.IT.decision.headroom?'여의도':'이태원';
+  document.getElementById('cmpNote').textContent='현재가 대비 가격 여유가 큰 '+pick+'에 자기자본을 우선 배분합니다. 확률 지표는 각 부지 탭에서 실행하세요.';
+}
+</script>
+</body>
+</html>
+
